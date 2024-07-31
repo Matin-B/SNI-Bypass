@@ -25,6 +25,11 @@ echo -e "${GREEN}Installing jq.${NC}"
 apt-get install -y jq
 echo -e "${GREEN}jq installed successfully.${NC}"
 
+
+#finding the ip address
+PUBLIC_IP=$(curl -s ip.webdade.com | jq -r '.ipv4')
+
+
 # Install prerequisites
 echo -e "${GREEN}Installing prerequisites.${NC}"
 apt-get install -y autotools-dev cdbs debhelper dh-autoreconf dpkg-dev gettext libev-dev libpcre2-dev libudns-dev pkg-config fakeroot devscripts net-tools
@@ -45,11 +50,9 @@ echo -e "${GREEN}Building SNIProxy.${NC}"
 ./autogen.sh && dpkg-buildpackage -us -uc
 echo -e "${GREEN}SNIProxy built successfully.${NC}"
 
-# Install SNIProxy
-DEB_PACKAGE=$(ls ../sniproxy_*.deb | head -n 1)
-echo -e "${GREEN}Installing SNIProxy package: $DEB_PACKAGE${NC}"
-dpkg -i "$DEB_PACKAGE"
-echo -e "${GREEN}SNIProxy installed successfully.${NC}"
+
+
+
 
 # Create the SNIProxy configuration file
 echo -e "${GREEN}Creating /etc/sniproxy.conf.${NC}"
@@ -58,41 +61,54 @@ user daemon
 
 pidfile /var/run/sniproxy.pid
 
-resolver {
-        nameserver 1.1.1.1
-        nameserver 8.8.8.8
-        mode ipv4_only
-}
-
-#listener 80 {
-#       proto http
+#resolver {
+#        nameserver 1.1.1.1
+#       nameserver 8.8.8.8
+#      mode ipv4_only
 #}
+
+listen 80 {
+    proto http
+    table http_hosts
+}
 
 listener 443 {
         proto tls
+        table https_hosts
 }
 
-table {
-        .* *
+table http_hosts {
+    .* *:80
+}
+
+table https_hosts {
+    .* *:443
 }
 EOF
 echo -e "${GREEN}SNIProxy configuration file created.${NC}"
 
-# Create the SNIProxy service file
-echo -e "${GREEN}Creating /usr/lib/systemd/system/sniproxy.service.${NC}"
-cat <<EOF > /usr/lib/systemd/system/sniproxy.service
-[Unit]
-Description=SNI Proxy Service
-After=network.target
 
-[Service]
-Type=forking
-ExecStart=/usr/sbin/sniproxy -c /etc/sniproxy.conf
 
-[Install]
-WantedBy=multi-user.target
-EOF
-echo -e "${GREEN}SNIProxy service file created.${NC}"
+
+# Install SNIProxy
+DEB_PACKAGE=$(ls ../sniproxy_*.deb | head -n 1)
+echo -e "${GREEN}Installing SNIProxy package: $DEB_PACKAGE${NC}"
+dpkg -i "$DEB_PACKAGE"
+echo -e "${GREEN}SNIProxy installed successfully.${NC}"
+
+
+
+# Uncomment the DAEMON_ARGS line
+CONFIG_FILE="/etc/default/sniproxy"
+sed -i 's/^#DAEMON_ARGS="-c \/etc\/sniproxy.conf"/DAEMON_ARGS="-c \/etc\/sniproxy.conf"/' "$CONFIG_FILE"
+
+# Change ENABLED to 1
+sed -i 's/^ENABLED=0/ENABLED=1/' "$CONFIG_FILE"
+
+echo "Updated $CONFIG_FILE:"
+cat "$CONFIG_FILE"
+
+
 
 # Install and configure dnsmasq
 echo -e "${GREEN}Installing dnsmasq.${NC}"
@@ -101,13 +117,19 @@ echo -e "${GREEN}dnsmasq installed.${NC}"
 
 echo -e "${GREEN}Creating /etc/dnsmasq.conf.${NC}"
 cat <<EOF > /etc/dnsmasq.conf
-conf-dir=/etc/dnsmasq.d/,*.conf
-cache-size=100000
-no-resolv
+domain-needed
+bogus-priv
+#no-resolv
+no-poll
+all-servers
 server=1.1.1.1
 server=8.8.8.8
+#server=208.67.222.222
+#server=2001:4860:4860::8888
+#server=2001:4860:4860::8844
 interface=eth0
-interface=lo
+listen-address=$PUBLIC_IP
+address=/#/$PUBLIC_IP
 EOF
 echo -e "${GREEN}dnsmasq configuration file created.${NC}"
 
@@ -134,95 +156,67 @@ systemctl daemon-reload
 systemctl start dnsmasq
 echo -e "${GREEN}dnsmasq started.${NC}"
 
-# Install and configure NGINX
-echo -e "${GREEN}Installing NGINX.${NC}"
-apt-get install -y nginx
-echo -e "${GREEN}NGINX installed.${NC}"
-
-echo -e "${GREEN}Backing up the default NGINX configuration.${NC}"
-cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
-
-echo -e "${GREEN}Creating /etc/nginx/nginx.conf.${NC}"
-cat <<EOF > /etc/nginx/nginx.conf
-user www-data;
-worker_processes auto;
-error_log /var/log/nginx/error.log;
-pid /run/nginx.pid;
-include /usr/share/nginx/modules/*.conf;
-
-events {
-    worker_connections 1024;
-}
-
-http {
-    log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
-                      '\$status \$body_bytes_sent "\$http_referer" '
-                      '"\$http_user_agent" "\$http_x_forwarded_for"';
-    access_log  /var/log/nginx/access.log  main;
-    sendfile            on;
-    tcp_nopush          on;
-    tcp_nodelay         on;
-    keepalive_timeout   65;
-    types_hash_max_size 2048;
-    include             /etc/nginx/mime.types;
-    default_type        application/octet-stream;
-    include             /etc/nginx/conf.d/*.conf;
-
-    server {
-        listen       80 default_server;
-        server_name  _;
-        root         /usr/share/nginx/html;
-        include /etc/nginx/default.d/*.conf;
-
-        location / {
-            rewrite ^ \$http_x_forwarded_proto://\$host\$request_uri permanent;
-        }
-
-        error_page 404 /404.html;
-        location = /40x.html {
-        }
-
-        error_page 500 502 503 504 /50x.html;
-        location = /50x.html {
-        }
-    }
-}
-EOF
-echo -e "${GREEN}NGINX configuration file created.${NC}"
-
-# Check NGINX configuration and restart NGINX
-echo -e "${GREEN}Checking NGINX configuration.${NC}"
-nginx -t
-echo -e "${GREEN}Reloading and restarting NGINX.${NC}"
-systemctl reload nginx
-systemctl restart nginx
-echo -e "${GREEN}NGINX reloaded and restarted.${NC}"
-
 # Enable and start services
 echo -e "${GREEN}Enabling and starting services.${NC}"
 systemctl enable sniproxy
 systemctl enable dnsmasq
-systemctl enable nginx
 
-systemctl start sniproxy
+systemctl restart sniproxy
 systemctl start dnsmasq
-systemctl start nginx
 echo -e "${GREEN}Services enabled and started.${NC}"
 
 # Create dnsmasq configuration for SNI
-PUBLIC_IP=$(curl -s ip.webdade.com | jq -r '.ipv4')
 if [[ $PUBLIC_IP =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo -e "${GREEN}Creating /etc/dnsmasq.d/sni.conf with public IP $PUBLIC_IP.${NC}"
-    cat <<EOF > /etc/dnsmasq.d/sni.conf
+    echo -e "${GREEN}Creating /etc/dnsmasq.d/sni.conf with public IP $PUBLIC_IP.                                                                                                                                                                                                                                             ${NC}"
+    cat <<EOF > /etc/dnsmasq.d/dnsmasq.conf
+address=/#/$PUBLIC_IP
+domain-needed
+bogus-priv
+no-resolv
+no-poll
+all-servers
+server=1.1.1.1
+server=8.8.8.8
+#server=208.67.222.222
+#server=2001:4860:4860::8888
+#server=2001:4860:4860::8844
+interface=eth0
+listen-address=$PUBLIC_IP
 address=/#/$PUBLIC_IP
 EOF
     echo -e "${GREEN}DNSMasq configuration for SNI created.${NC}"
 else
-    echo -e "${RED}Invalid IP detected. Please configure /etc/dnsmasq.d/sni.conf manually.${NC}"
+    echo -e "${RED}Invalid IP detected. Please configure /etc/dnsmasq.d/sni.conf                                                                                                                                                                                                                                              manually.${NC}"
 fi
 
-echo -e "${YELLOW}To use this setup, configure your DNS settings on the desired server that has no access to the desired domain. For example, in Linux, add the following line to /etc/hosts:${NC}"
+
+echo -e "${GREEN}Creating /etc/dnsmasq.conf.${NC}"
+cat <<EOF > /run/dnsmasq/resolv.conf
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+EOF
+
+cat <<EOF > /run/dnsmasq/resolv.conf
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+EOF
+
+cat <<EOF > /etc/resolv.conf
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+EOF
+
+echo "DNSStubListener=no" | sudo tee -a /etc/systemd/resolved.conf
+
+systemctl restart systemd-resolved
+systemctl enable systemd-resolved
+
+
+systemctl restart dnsmasq.service
+
+
+echo -e "${YELLOW}To use this setup, configure your DNS settings on the desired                                                                                                                                                                                                                                              server that has no access to the desired domain. For example, in Linux, add the                                                                                                                                                                                                                                              following line to /etc/hosts:${NC}"
 echo -e "${GREEN}$PUBLIC_IP yourdesired.domain.com${NC}"
 
-echo -e "${YELLOW}Replace 'yourdesired.domain.com' with the domain you want to bypass.${NC}"
+echo -e "${YELLOW}Replace 'yourdesired.domain.com' with the domain you want to b                                                                                                                                                                                                                                             ypass.${NC}"
 echo -e "${GREEN}- Installation completed successfully ...${NC}"
