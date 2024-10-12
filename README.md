@@ -19,11 +19,11 @@ An automated setup script for configuring SNI Proxy, DNSMasq, and NGINX on Ubunt
     ```
 2. **Make the Installer Executable:**
     ```bash
-    chmod +x sniproxy-installer.sh
+    chmod +x sni-bypass-installer.sh
     ```
 3. **Run the Installer:**
     ```bash
-    sudo ./sniproxy-installer.sh
+    sudo ./sni-bypass-installer.sh
     ```
 
 ## Post-Installation Configuration
