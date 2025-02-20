@@ -44,5 +44,30 @@ If you want to bypass specific domains, specify them in /etc/dnsmasq.d/sni.conf 
 address=/<SPECIFIC_DOMAIN>/SNI_SERVER_IP
 ```
 
+## رفع محدودیت درگاه‌های پرداخت ایرانی
+از **اوایل مهر 1403**، شرکت **شاپرک** محدودیت‌هایی روی درگاه‌های پرداختی که هاست آنها در خارج از ایران قرار دارد اعمال کرده است. این موضوع باعث شده کاربران خارج از کشور در اتصال به این درگاه‌ها دچار مشکل شوند.  
+
+اگر نیاز دارید این محدودیت را دور بزنید و درگاه‌های بانکی ایرانی را از سرورهای خارج از کشور در دسترس داشته باشید، می‌توانید از این پروژه همراه با فایل **hosts** زیر استفاده کنید.
+
+### نمونه تنظیمات `/etc/hosts`  
+**لطفاً `SNI_SERVER_IP` را با آی‌پی سرور SNI-Bypass خود جایگزین کنید.**  
+
+```bash
+SNI_SERVER_IP        pep.shaparak.ir
+SNI_SERVER_IP        sep.shaparak.ir
+SNI_SERVER_IP        pna.shaparak.ir
+SNI_SERVER_IP        pec.shaparak.ir
+SNI_SERVER_IP        sadad.shaparak.ir
+SNI_SERVER_IP        fcp.shaparak.ir
+SNI_SERVER_IP        sepehr.shaparak.ir
+SNI_SERVER_IP        ikc.shaparak.ir
+SNI_SERVER_IP        bpm.shaparak.ir
+SNI_SERVER_IP        ecd.shaparak.ir
+SNI_SERVER_IP        asan.shaparak.ir
+```
+
+### نحوه استفاده از این پروژه  
+برای آموزش کامل راه‌اندازی و استفاده از این پروژه جهت رفع مشکل ایران اکسس درگاه های پرداخت، به لینک زیر مراجعه کنید:  
+https://webdade.com/blog/iran-access-and-non-connection-of-payment-gateway
 
 ### Special thanks to Saeed Yavari with this [article](https://behineserver.com/blog/dedicate-anti-sanctions)
