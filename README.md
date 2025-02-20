@@ -30,18 +30,18 @@ An automated setup script for configuring SNI Proxy, DNSMasq, and NGINX on Ubunt
 
 After the installation, you need to configure the DNS settings on the desired server that doesn't have access to specific domains. For example, on a Linux server, you would add the following line to /etc/hosts:</br>
 ```bash
-<your_server_ip> <specific_domain>
+SNI_SERVER_IP <SPECIFIC_DOMAIN>
 ```
-**Note: Replace `<your_server_ip>` and `<domain>` with the detected public IP and the desired domain.**
+**Note: Replace `SNI_SERVER_IP` and `<domain>` with the detected public IP and the desired domain.**
 
 If you want to bypass all domains using DNS, set /etc/dnsmasq.d/sni.conf as follows:
 ```bash
-address=/#/<your_server_ip>
+address=/#/SNI_SERVER_IP
 ```
 
 If you want to bypass specific domains, specify them in /etc/dnsmasq.d/sni.conf and update /etc/hosts accordingly:
 ```bash
-address=/<specific_domain>/<your_server_ip>
+address=/<SPECIFIC_DOMAIN>/SNI_SERVER_IP
 ```
 
 
