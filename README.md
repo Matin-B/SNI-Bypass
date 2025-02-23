@@ -44,6 +44,14 @@ If you want to bypass specific domains, specify them in /etc/dnsmasq.d/sni.conf 
 address=/<SPECIFIC_DOMAIN>/SNI_SERVER_IP
 ```
 
+**Important Note:** After completing the installation and configuration, **a server reboot is required** for SNI to function properly. This is necessary to ensure that all changes are applied successfully and that the SNI Proxy is enabled.
+
+To reboot the server, you can run:
+
+```bash
+sudo reboot
+```
+
 ## رفع محدودیت درگاه‌های پرداخت ایرانی
 از **اوایل مهر 1403**، شرکت **شاپرک** محدودیت‌هایی روی درگاه‌های پرداختی که هاست آنها در خارج از ایران قرار دارد اعمال کرده است. این موضوع باعث شده کاربران خارج از کشور در اتصال به این درگاه‌ها دچار مشکل شوند.  
 
